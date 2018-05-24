@@ -186,9 +186,16 @@ class UCIEngine(EngineWrapper):
         return best_move
 
     def go_infinite(self, board, best_move):
-        new_board = board.copy()
-        new_board.push(best_move)
-        self.set_board(new_board)
+        if "fish" in self.engine.name:
+            self.set_board(board)
+            self.engine.go(
+                    searchmoves=[best_move,],
+                    infinite=True,
+                    async_callback=True)
+            return
+        board = board.copy()
+        board.push(best_move)
+        self.set_board(board)
         if self.engine.info_handlers:
             self.engine.info_handlers.pop()
             self.engine.info_handlers.append(self.ponder_handler)
