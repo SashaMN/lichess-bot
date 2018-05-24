@@ -99,7 +99,6 @@ class UCIEngine(EngineWrapper):
 
         self.ponder_handler = handlers.PonderHandler(self.change_info)
         self.info_handler = handlers.InfoHandler(self.change_info)
-
         self.engine.info_handlers.append(self.info_handler)
 
         weights_command = ''
@@ -140,10 +139,11 @@ class UCIEngine(EngineWrapper):
             if old_nodes > self.info["nodes"]:
                 nodes_reused = self.info["nodes"] / old_nodes * 100.0
                 self.nodes_reused_history.append(nodes_reused)
-                output += ", reused: {0:.2f}%, avg. reused: {1:.2f}%" \
-                        .format(nodes_reused,
-                                sum(self.nodes_reused_history) / \
-                                len(self.nodes_reused_history))
+                player_nodes_reused_history = self.nodes_reused_history[::-2]
+                output += ", reused: {0}%, avg. reused: {1}%" \
+                        .format(round(nodes_reused),
+                                round(sum(player_nodes_reused_history) / \
+                                len(player_nodes_reused_history)))
             print(output)
 
     def reset(self):
