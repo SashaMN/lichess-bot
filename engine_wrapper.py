@@ -96,9 +96,7 @@ class UCIEngine(EngineWrapper):
             "UCI_Chess960": board.chess960
         })
         self.set_board(board)
-        self.set_ponder(True)
 
-        self.info = None
         self.ponder_handler = handlers.PonderHandler(self.change_info)
         self.info_handler = handlers.InfoHandler(self.change_info)
 
@@ -114,34 +112,45 @@ class UCIEngine(EngineWrapper):
         startpos = weights_command.find(prefix) + len(prefix)
         endpos = weights_command.find(suffix)
         self.id = weights_command[startpos:endpos]
+        self.reset()
 
     def change_info(self, info):
         if "fish" in self.engine.name:
             self.info = info
             return
 
-        alpha = 0.99
         if self.info is None:
             self.info = copy.deepcopy(info)
-        elif "nps" in info:
+            return
+
+        alpha = 0.99
+        if 1 in self.info["score"] and \
+                "nps" in info and \
+                "nodes" in info:
             old_nps = self.info["nps"]
+            old_nodes = self.info["nodes"]
 
             self.info = copy.deepcopy(info)
             self.info["nps"] = \
                 round(old_nps * alpha + info["nps"] * (1.0 - alpha))
-        else:
-            self.info = info
-        if 1 in self.info["score"]:
             output = "Leela: score: {0}, nps: {1}, nodes: {2}" \
                 .format(self.info["score"][1].cp, \
                 self.info["nps"], \
                 self.info["nodes"])
+            if old_nodes > self.info["nodes"]:
+                nodes_reused = self.info["nodes"] / old_nodes * 100.0
+                self.nodes_reused_history.append(nodes_reused)
+                output += ", reused: {0:.2f}%, avg. reused: {1:.2f}%" \
+                        .format(nodes_reused,
+                                sum(self.nodes_reused_history) / \
+                                len(self.nodes_reused_history))
             print(output)
 
     def reset(self):
         self.engine.ucinewgame()
         self.set_ponder(True)
         self.info = None
+        self.nodes_reused_history = []
 
     def set_board(self, board):
         self.engine.position(board)
