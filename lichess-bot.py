@@ -3,6 +3,7 @@ import chess
 from chess.variant import find_variant
 import chess.polyglot
 import engine_wrapper
+import engines_controller
 import model
 import json
 import lichess
@@ -17,6 +18,7 @@ from conversation import Conversation, ChatLine
 from functools import partial
 from requests.exceptions import ChunkedEncodingError, ConnectionError, HTTPError
 from urllib3.exceptions import ProtocolError
+import sys
 
 try:
     from http.client import RemoteDisconnected
@@ -32,6 +34,13 @@ def upgrade_account(li):
 
     print("Succesfully upgraded to Bot Account!")
     return True
+
+def engine_init(engine_factory, board=chess.Board()):
+    playing = engine_factory(board)
+    referee = engine_wrapper.UCIEngine(board, ['engines/stockfish'])
+    global engines_controller
+    engines_controller = engines_controller.EnginesController(playing, referee) 
+    engines_controller.reset()
 
 @backoff.on_exception(backoff.expo, BaseException, max_time=600)
 def watch_control_stream(control_queue, li):
@@ -54,7 +63,8 @@ def start(li, user_profile, engine_factory, config):
     busy_processes = 0
     queued_processes = 0
 
-    with logging_pool.LoggingPool(max_games+1) as pool:
+    with logging_pool.LoggingPool(
+		max_games, engine_init, (engine_factory,)) as pool:
         while True:
             event = control_queue.get()
             if event["type"] == "local_game_done":
@@ -98,6 +108,10 @@ def start(li, user_profile, engine_factory, config):
     control_stream.terminate()
     control_stream.join()
 
+def time_with_overhead(t):
+    min_t = 10000
+    return t if t > min_t else t // 2
+
 @backoff.on_exception(backoff.expo, BaseException, max_time=600)
 def play_game(li, game_id, control_queue, engine_factory, user_profile, config):
     updates = li.get_game_stream(game_id).iter_lines()
@@ -105,18 +119,24 @@ def play_game(li, game_id, control_queue, engine_factory, user_profile, config):
     #Initial response of stream will be the full game info. Store it
     game = model.Game(json.loads(next(updates).decode('utf-8')), user_profile["username"], li.baseUrl, config.get("abort_time", 20))
     board = setup_board(game)
-    engine = engine_factory(board)
-    conversation = Conversation(game, engine, li, __version__)
+    if not engines_controller:
+        engine_init(engine_factory, board)
+    else:
+        engines_controller.stop()
+        engines_controller.reset()
+        engines_controller.set_board(board)
+    
+    conversation = Conversation(game, engines_controller, li, __version__)
 
     print("+++ {}".format(game))
 
     engine_cfg = config["engine"]
     polyglot_cfg = engine_cfg.get("polyglot", {})
 
-    if not polyglot_cfg.get("enabled") or not play_first_book_move(game, engine, board, li, polyglot_cfg):
-        play_first_move(game, engine, board, li)
+    if not polyglot_cfg.get("enabled") or not play_first_book_move(game, engine_controller, board, li, polyglot_cfg):
+        play_first_move(game, engines_controller, board, li)
 
-    engine.set_time_control(game)
+    engines_controller.playing.set_time_control(game)
 
     try:
         for binary_chunk in updates:
@@ -138,7 +158,20 @@ def play_game(li, game_id, control_queue, engine_factory, user_profile, config):
                     if polyglot_cfg.get("enabled") and len(moves) <= polyglot_cfg.get("max_depth", 8) * 2 - 1:
                         best_move = get_book_move(board, polyglot_cfg)
                     if best_move == None:
-                        best_move = engine.search(board, upd["wtime"], upd["btime"], upd["winc"], upd["binc"])
+                        wtime = upd["wtime"]
+                        btime = upd["btime"]
+                        winc = upd["winc"]
+                        binc = upd["binc"]
+                        if (wtime < 10000 or btime < 10000) and \
+                            winc == 0 and binc == 0 and \
+                            engines_controller.playing.ponder:
+                            engines_controller.set_ponder(False)
+
+                        best_move = engines_controller.search(board,
+                            time_with_overhead(wtime),
+                            time_with_overhead(btime),
+                            time_with_overhead(winc),
+                            time_with_overhead(binc))
                     li.make_move(game.id, best_move)
                     game.abort_in(config.get("abort_time", 20))
             elif u_type == "ping":
@@ -150,7 +183,8 @@ def play_game(li, game_id, control_queue, engine_factory, user_profile, config):
         traceback.print_exception(type(exception), exception, exception.__traceback__)
     finally:
         print("--- {} Game over".format(game.url()))
-        engine.quit()
+        engines_controller.stop()
+        engines_controller.reset()
         # This can raise queue.NoFull, but that should only happen if we're not processing
         # events fast enough and in this case I believe the exception should be raised
         control_queue.put_nowait({"type": "local_game_done"})
@@ -160,7 +194,7 @@ def play_first_move(game, engine, board, li):
     moves = game.state["moves"].split()
     if is_engine_move(game, moves):
         # need to hardcode first movetime since Lichess has 30 sec limit.
-        best_move = engine.first_search(board, 10000)
+        best_move = engine.first_search(board, 100)
         li.make_move(game.id, best_move)
         return True
     return False
