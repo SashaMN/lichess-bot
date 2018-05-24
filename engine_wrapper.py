@@ -101,6 +101,9 @@ class UCIEngine(EngineWrapper):
         self.info_handler = handlers.InfoHandler(self.change_info)
         self.engine.info_handlers.append(self.info_handler)
 
+        self.ponder_puct = 100
+        self.search_puct = 3.16836
+
         weights_command = ''
         for command in commands:
             if command.find("weights") != -1:
@@ -136,14 +139,14 @@ class UCIEngine(EngineWrapper):
                 .format(self.info["score"][1].cp, \
                 self.info["nps"], \
                 self.info["nodes"])
-            if old_nodes > self.info["nodes"]:
+            if self.compute_reuse:
+                self.compute_reuse = False
                 nodes_reused = self.info["nodes"] / old_nodes * 100.0
                 self.nodes_reused_history.append(nodes_reused)
-                player_nodes_reused_history = self.nodes_reused_history[::-2]
                 output += ", reused: {0}%, avg. reused: {1}%" \
                         .format(round(nodes_reused),
-                                round(sum(player_nodes_reused_history) / \
-                                len(player_nodes_reused_history)))
+                                round(sum(self.nodes_reused_history) / \
+                                len(self.nodes_reused_history)))
             print(output)
 
     def reset(self):
@@ -151,6 +154,7 @@ class UCIEngine(EngineWrapper):
         self.set_ponder(True)
         self.info = None
         self.nodes_reused_history = []
+        self.compute_reuse = False
 
     def set_board(self, board):
         self.engine.position(board)
@@ -161,6 +165,7 @@ class UCIEngine(EngineWrapper):
         self.ponder = value
 
     def first_search(self, board, movetime):
+        self.engine.setoption({"Cpuct MCTS option": self.search_puct})
         self.engine.position(board)
         best_move, _ = self.engine.go(movetime=movetime)
         self.go_infinite(board, best_move)
@@ -168,6 +173,8 @@ class UCIEngine(EngineWrapper):
 
     def search(self, board, wtime, btime, winc, binc):
         self.stop()
+        self.compute_reuse = True
+        self.engine.setoption({"Cpuct MCTS option": self.search_puct})
         self.set_board(board)
         cmds = self.go_commands
         if self.engine.info_handlers:
@@ -193,6 +200,7 @@ class UCIEngine(EngineWrapper):
                     infinite=True,
                     async_callback=True)
             return
+        self.engine.setoption({"Cpuct MCTS option": self.ponder_puct})
         board = board.copy()
         board.push(best_move)
         self.set_board(board)
