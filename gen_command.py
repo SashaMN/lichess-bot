@@ -7,7 +7,7 @@ with open('command.txt', 'w') as f:
         if idx == len(gpus):
             idx -= len(gpus)
 
-        cur_comm = '{0}(backend=cudnn,gpu={1},max_batch=512)'.format(cur_l, gpus[idx])
+        cur_comm = '{0}(backend=cudnn,gpu={1},max_batch=512,threads=5)'.format(cur_l, gpus[idx])
         comm.append(cur_comm)
         idx += 1
         cur_l = chr(ord(cur_l) + 1)
