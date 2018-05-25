@@ -101,7 +101,7 @@ class UCIEngine(EngineWrapper):
         self.info_handler = handlers.InfoHandler(self.change_info)
         self.engine.info_handlers.append(self.info_handler)
 
-        self.ponder_puct = 100
+        self.ponder_puct = 10
         self.search_puct = 3.16836
 
         weights_command = ''
