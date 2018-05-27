@@ -1,6 +1,6 @@
 with open('command.txt', 'w') as f:
     comm=[]
-    gpus = [0, 1, 2, 3, 4]
+    gpus = [0, 1, 2, 3]
     idx = 0
     cur_l = 'a'
     for i in range(len(gpus)):
@@ -12,7 +12,7 @@ with open('command.txt', 'w') as f:
         idx += 1
         cur_l = chr(ord(cur_l) + 1)
 
-    command = '[\'./engines/lc0_new\', \'--slowmover=2.8\', \'--tempdecay-moves=5\', \'--threads=20\', \'--weights=engines/weights_kb1-256x20-2100000.txt\', \'--cpuct=3.16836\', \'--fpu-reduction=-0.0683163\', \'--backend=multiplexing\', \'--nncache=20000000\', \'--backend-opts=' + ','.join(comm) + '\']'
+    command = '[\'./engines/lc0\', \'--slowmover=2.8\', \'--tempdecay-moves=5\', \'--threads=20\', \'--weights=engines/weights_kb1-256x20-2100000.txt\', \'--cpuct=3.16836\', \'--fpu-reduction=-0.0683163\', \'--backend=multiplexing\', \'--nncache=20000000\', \'--backend-opts=' + ','.join(comm) + '\']'
     print(command, file=f)
 
 with open('run_command.sh', 'w') as f:
