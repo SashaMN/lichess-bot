@@ -135,10 +135,11 @@ class UCIEngine(EngineWrapper):
             self.info = copy.deepcopy(info)
             self.info["nps"] = \
                 round(old_nps * alpha + info["nps"] * (1.0 - alpha))
-            output = "Leela: score: {0}, nps: {1}, nodes: {2}" \
-                .format(self.info["score"][1].cp, \
-                self.info["nps"], \
-                self.info["nodes"])
+            output = "Leela: score: {0}, nps: {1}, nodes: {2}, seldepth: {3}" \
+                .format(self.info["score"][1].cp,
+                        self.info["nps"],
+                        self.info["nodes"],
+                        self.info["seldepth"])
             if self.compute_reuse:
                 self.compute_reuse = False
                 nodes_reused = self.info["nodes"] / old_nodes * 100.0
