@@ -103,6 +103,8 @@ class UCIEngine(EngineWrapper):
 
         self.ponder_puct = 10
         self.search_puct = 3.16836
+        self.ponder_temp = 2.0
+        self.search_temp = 1.0
 
         weights_command = ''
         for command in commands:
@@ -176,6 +178,7 @@ class UCIEngine(EngineWrapper):
         self.stop()
         self.compute_reuse = True
         self.engine.setoption({"Cpuct MCTS option": self.search_puct})
+        self.engine.setoption({"Policy softmax temperature": self.search_temp})
         self.set_board(board)
         cmds = self.go_commands
         if self.engine.info_handlers:
@@ -202,6 +205,7 @@ class UCIEngine(EngineWrapper):
                     async_callback=True)
             return
         self.engine.setoption({"Cpuct MCTS option": self.ponder_puct})
+        self.engine.setoption({"Policy softmax temperature": self.ponder_temp})
         board = board.copy()
         board.push(best_move)
         self.set_board(board)
