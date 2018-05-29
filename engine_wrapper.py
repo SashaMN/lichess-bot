@@ -103,7 +103,7 @@ class UCIEngine(EngineWrapper):
 
         self.ponder_puct = 10
         self.search_puct = 3.16836
-        self.ponder_temp = 2.0
+        self.ponder_temp = 1.5
         self.search_temp = 1.0
 
         weights_command = ''
