@@ -127,7 +127,7 @@ class UCIEngine(EngineWrapper):
             self.info = copy.deepcopy(info)
             return
 
-        alpha = 0.99
+        alpha = 0.85
         if 1 in self.info["score"] and \
                 "nps" in info and \
                 "nodes" in info:
