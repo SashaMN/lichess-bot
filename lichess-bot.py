@@ -108,10 +108,6 @@ def start(li, user_profile, engine_factory, config):
     control_stream.terminate()
     control_stream.join()
 
-def time_with_overhead(t):
-    min_t = 10000
-    return t if t > min_t else t // 2
-
 @backoff.on_exception(backoff.expo, BaseException, max_time=600)
 def play_game(li, game_id, control_queue, engine_factory, user_profile, config):
     updates = li.get_game_stream(game_id).iter_lines()
@@ -158,20 +154,12 @@ def play_game(li, game_id, control_queue, engine_factory, user_profile, config):
                     if polyglot_cfg.get("enabled") and len(moves) <= polyglot_cfg.get("max_depth", 8) * 2 - 1:
                         best_move = get_book_move(board, polyglot_cfg)
                     if best_move == None:
-                        wtime = upd["wtime"]
-                        btime = upd["btime"]
-                        winc = upd["winc"]
-                        binc = upd["binc"]
-                        if (wtime < 10000 or btime < 10000) and \
-                            winc == 0 and binc == 0 and \
-                            engines_controller.playing.ponder:
-                            engines_controller.set_ponder(False)
-
-                        best_move = engines_controller.search(board,
-                            time_with_overhead(wtime),
-                            time_with_overhead(btime),
-                            time_with_overhead(winc),
-                            time_with_overhead(binc))
+                        best_move = engines_controller.search(
+                            board,
+                            upd["wtime"],
+                            upd["btime"],
+                            upd["winc"],
+                            upd["binc"])
                     li.make_move(game.id, best_move)
                     game.abort_in(config.get("abort_time", 20))
             elif u_type == "ping":
