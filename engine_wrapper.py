@@ -97,7 +97,6 @@ class UCIEngine(EngineWrapper):
         })
         self.set_board(board)
 
-        self.ponder_handler = handlers.PonderHandler(self.change_info)
         self.info_handler = handlers.InfoHandler(self.change_info)
         self.engine.info_handlers.append(self.info_handler)
 
@@ -181,9 +180,6 @@ class UCIEngine(EngineWrapper):
         self.engine.setoption({"Policy softmax temperature": self.search_temp})
         self.set_board(board)
         cmds = self.go_commands
-        if self.engine.info_handlers:
-            self.engine.info_handlers.pop()
-            self.engine.info_handlers.append(self.info_handler)
         best_move, _ = self.engine.go(
             wtime=wtime,
             btime=btime,
@@ -207,13 +203,10 @@ class UCIEngine(EngineWrapper):
         self.engine.setoption({"Cpuct MCTS option": self.ponder_puct})
         self.engine.setoption({"Policy softmax temperature": self.ponder_temp})
         board = board.copy()
-        board.push(best_move)
         self.set_board(board)
-        if self.engine.info_handlers:
-            self.engine.info_handlers.pop()
-            self.engine.info_handlers.append(self.ponder_handler)
         if self.ponder:
             self.engine.go(
+                    searchmoves=[best_move,],
                     infinite=True,
                     async_callback=True)
 
