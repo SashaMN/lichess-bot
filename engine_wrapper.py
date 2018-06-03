@@ -100,11 +100,6 @@ class UCIEngine(EngineWrapper):
         self.info_handler = handlers.InfoHandler(self.change_info)
         self.engine.info_handlers.append(self.info_handler)
 
-        self.ponder_puct = 10
-        self.search_puct = 3.16836
-        self.ponder_temp = 1.5
-        self.search_temp = 1.0
-
         weights_command = ''
         for command in commands:
             if command.find("weights") != -1:
@@ -161,7 +156,6 @@ class UCIEngine(EngineWrapper):
         self.engine.position(board)
 
     def first_search(self, board, movetime):
-        self.engine.setoption({"Cpuct MCTS option": self.search_puct})
         self.engine.position(board)
         best_move, _ = self.engine.go(movetime=movetime)
         self.go_infinite(board, best_move)
@@ -170,8 +164,6 @@ class UCIEngine(EngineWrapper):
     def search(self, board, wtime, btime, winc, binc):
         self.stop()
         self.compute_reuse = True
-        self.engine.setoption({"Cpuct MCTS option": self.search_puct})
-        self.engine.setoption({"Policy softmax temperature": self.search_temp})
         self.set_board(board)
         cmds = self.go_commands
         best_move, _ = self.engine.go(
@@ -187,15 +179,6 @@ class UCIEngine(EngineWrapper):
         return best_move
 
     def go_infinite(self, board, best_move):
-        if "fish" in self.engine.name:
-            self.set_board(board)
-            self.engine.go(
-                    searchmoves=[best_move,],
-                    infinite=True,
-                    async_callback=True)
-            return
-        self.engine.setoption({"Cpuct MCTS option": self.ponder_puct})
-        self.engine.setoption({"Policy softmax temperature": self.ponder_temp})
         board = board.copy()
         self.set_board(board)
         self.engine.go(
