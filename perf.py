@@ -9,7 +9,6 @@ command.append('--no-smart-pruning')
 
 engine = chess.uci.popen_engine(command)
 engine.uci()
-engine.setoption({'Cpuct MCTS option': 100})
 engine.ucinewgame()
 N = 1300000 / 10
 
