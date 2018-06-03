@@ -153,18 +153,12 @@ class UCIEngine(EngineWrapper):
 
     def reset(self):
         self.engine.ucinewgame()
-        self.set_ponder(True)
         self.info = None
         self.nodes_reused_history = []
         self.compute_reuse = False
 
     def set_board(self, board):
         self.engine.position(board)
-
-    def set_ponder(self, value):
-        if not value:
-            self.stop()
-        self.ponder = value
 
     def first_search(self, board, movetime):
         self.engine.setoption({"Cpuct MCTS option": self.search_puct})
@@ -204,11 +198,10 @@ class UCIEngine(EngineWrapper):
         self.engine.setoption({"Policy softmax temperature": self.ponder_temp})
         board = board.copy()
         self.set_board(board)
-        if self.ponder:
-            self.engine.go(
-                    searchmoves=[best_move,],
-                    infinite=True,
-                    async_callback=True)
+        self.engine.go(
+            searchmoves=[best_move,],
+            infinite=True,
+             async_callback=True)
 
     def stop(self):
         self.engine.stop()
