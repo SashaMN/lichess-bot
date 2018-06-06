@@ -10,7 +10,7 @@ command.append('--no-smart-pruning')
 engine = chess.uci.popen_engine(command)
 engine.uci()
 engine.ucinewgame()
-N = 1300000 / 10
+N = 130000
 
 print('Test started!')
 start = time.time()

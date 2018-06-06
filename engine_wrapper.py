@@ -179,6 +179,7 @@ class UCIEngine(EngineWrapper):
         return best_move
 
     def go_infinite(self, board, best_move):
+        # self.engine.isready()  # temp fix because of lc0 memory leak
         board = board.copy()
         self.set_board(board)
         self.engine.go(
