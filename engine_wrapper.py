@@ -2,7 +2,9 @@ import os
 import chess
 import chess.xboard
 import chess.uci
+import copy
 import backoff
+import handlers
 import math
 import subprocess
 
@@ -103,10 +105,39 @@ class UCIEngine(EngineWrapper):
         })
         self.engine.position(board)
 
-        info_handler = chess.uci.InfoHandler()
-        self.engine.info_handlers.append(info_handler)
+        self.info_handler = handlers.InfoHandler(self.change_info)
+        self.engine.info_handlers.append(self.info_handler)
         self.stats_info = []
         self.is_ponder = False
+
+    def change_info(self, info):
+        if self.info is None:
+            self.info = copy.deepcopy(info)
+        return
+        alpha = 0.85
+        if 1 in self.info["score"] and \
+            "nps" in info and \
+            "nodes" in info:
+            old_nps = self.info["nps"]
+            old_nodes = self.info["nodes"]
+            
+            self.info = copy.deepcopy(info)
+            self.info["nps"] = \
+                    round(old_nps * alpha + info["nps"] * (1.0 - alpha))
+            output = "Leela: score: {0}, nps: {1}, nodes: {2}, seldepth: {3}" \
+                .format(self.info["score"][1].cp,
+                        self.info["nps"],
+                        self.info["nodes"],
+                        self.info["seldepth"])
+            if self.compute_reuse:
+                self.compute_reuse = False
+                nodes_reused = self.info["nodes"] / old_nodes * 100.0
+                self.nodes_reused_history.append(nodes_reused)
+                output += ", reused: {0}%, avg. reused: {1}%" \
+                        .format(round(nodes_reused),
+                                round(sum(self.nodes_reused_history) / \
+                                len(self.nodes_reused_history)))
+            print(output)
 
     def first_search(self, board, movetime):
         self.engine.position(board)
@@ -143,7 +174,9 @@ class UCIEngine(EngineWrapper):
         self.is_ponder = False
 
     def reset(self):
-        pass
+        self.info = None
+        self.nodes_reused_history = []
+        self.compute_reuse = False
 
 
     def get_stats(self):
