@@ -2,6 +2,7 @@ import os
 import chess
 import chess.xboard
 import chess.uci
+import colors
 import copy
 import backoff
 import handlers
@@ -124,19 +125,26 @@ class UCIEngine(EngineWrapper):
             self.info = copy.deepcopy(info)
             self.info["nps"] = \
                     round(old_nps * alpha + info["nps"] * (1.0 - alpha))
-            output = "Leela: score: {0}, nps: {1}, nodes: {2}, seldepth: {3}" \
-                .format(self.info["score"][1].cp,
-                        self.info["nps"],
-                        self.info["nodes"],
-                        self.info["seldepth"])
+            score = self.info["score"][1].cp
+            if score < 0:
+                str_score = colors.CRED + str(score) + colors.CEND
+            else:
+                str_score = colors.CGREEN + str(score) + colors.CEND
+            output = "score: {0}, nps: {1}, nodes: {2}, seldepth: {3}" \
+                .format(str_score,
+                        colors.CBLUE + str(self.info["nps"]) + colors.CEND,
+                        colors.CBLUE + str(self.info["nodes"]) + colors.CEND,
+                        colors.CBLUE + str(self.info["seldepth"]) + colors.CEND)
             if self.compute_reuse:
                 self.compute_reuse = False
                 nodes_reused = self.info["nodes"] / old_nodes * 100.0
                 self.nodes_reused_history.append(nodes_reused)
-                output += ", reused: {0}%, avg. reused: {1}%" \
-                        .format(round(nodes_reused),
-                                round(sum(self.nodes_reused_history) / \
-                                len(self.nodes_reused_history)))
+                output += ", reused: {0}%, avg. reused: {1}%".format(
+                        colors.CBLUE + str(round(nodes_reused)) + colors.CEND,
+                        colors.CBLUE + \
+                                str(round(sum(self.nodes_reused_history) / \
+                                    len(self.nodes_reused_history))) + \
+                        colors.CEND)
             print(output)
 
     def first_search(self, board, movetime):
