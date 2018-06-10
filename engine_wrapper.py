@@ -146,6 +146,7 @@ class UCIEngine(EngineWrapper):
 
 
     def search(self, board, wtime, btime, winc, binc):
+        self.compute_reuse = True
         self.engine.setoption({"UCI_Variant": type(board).uci_variant})
         self.engine.position(board)
         cmds = self.go_commands
@@ -158,14 +159,19 @@ class UCIEngine(EngineWrapper):
             nodes=cmds.get("nodes"),
             movetime=cmds.get("movetime")
         )
-        self.compute_reuse = True
         return best_move
 
     def ponder(self, board):
         self.is_ponder = True
         self.engine.setoption({"UCI_Variant": type(board).uci_variant})
+        board = board.copy()
+        if board.move_stack:
+            last_move = board.pop()
+        else:
+            last_move = None
         self.engine.position(board)
-        ponder = self.engine.go(infinite=True, async_callback=True)
+        ponder = self.engine.go(searchmoves=[last_move,],
+                                infinite=True, async_callback=True)
 
     def set_board(self, board):
         self.engine.position(board)
