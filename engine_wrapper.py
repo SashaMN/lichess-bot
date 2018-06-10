@@ -139,7 +139,7 @@ class UCIEngine(EngineWrapper):
                 self.compute_reuse = False
                 nodes_reused = self.info["nodes"] / old_nodes * 100.0
                 self.nodes_reused_history.append(nodes_reused)
-                output += ", reused: {0}%, avg. reused: {1}%".format(
+                output += ", reuse: {0}%, avgreuse: {1}%".format(
                         colors.CBLUE + str(round(nodes_reused)) + colors.CEND,
                         colors.CBLUE + \
                                 str(round(sum(self.nodes_reused_history) / \
