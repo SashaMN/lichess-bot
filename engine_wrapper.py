@@ -113,7 +113,7 @@ class UCIEngine(EngineWrapper):
     def change_info(self, info):
         if self.info is None:
             self.info = copy.deepcopy(info)
-        return
+            return
         alpha = 0.85
         if 1 in self.info["score"] and \
             "nps" in info and \
@@ -158,6 +158,7 @@ class UCIEngine(EngineWrapper):
             nodes=cmds.get("nodes"),
             movetime=cmds.get("movetime")
         )
+        self.compute_reuse = True
         return best_move
 
     def ponder(self, board):
