@@ -135,9 +135,15 @@ class UCIEngine(EngineWrapper):
         self.engine.position(board)
         ponder = self.engine.go(infinite=True, async_callback=True)
 
+    def set_board(self, board):
+        self.engine.position(board)
+
     def stop(self):
         self.engine.stop()
         self.is_ponder = False
+
+    def reset(self):
+        pass
 
 
     def get_stats(self):

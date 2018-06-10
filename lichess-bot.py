@@ -33,6 +33,11 @@ def upgrade_account(li):
     print("Succesfully upgraded to Bot Account!")
     return True
 
+def engine_init(engine_factory, board = chess.Board()):
+    global engine
+    engine = engine_factory(board)
+    engine.reset()
+
 @backoff.on_exception(backoff.expo, BaseException, max_time=600)
 def watch_control_stream(control_queue, li):
     for evnt in li.get_event_stream().iter_lines():
@@ -45,21 +50,25 @@ def watch_control_stream(control_queue, li):
 def start(li, user_profile, engine_factory, config):
     challenge_config = config["challenge"]
     max_games = challenge_config.get("concurrency", 1)
-    print("You're now connected to {} and awaiting challenges.".format(config["url"]))
+    print("You're now connected to {} and awaiting challenges." \
+          .format(config["url"]))
     manager = multiprocessing.Manager()
     challenge_queue = manager.list()
     control_queue = manager.Queue()
-    control_stream = multiprocessing.Process(target=watch_control_stream, args=[control_queue, li])
+    control_stream = multiprocessing.Process(target=watch_control_stream,
+                                             args=[control_queue, li])
     control_stream.start()
     busy_processes = 0
     queued_processes = 0
 
-    with logging_pool.LoggingPool(max_games+1) as pool:
+    with logging_pool.LoggingPool(
+        max_games, engine_init, (engine_factory,)) as pool:
         while True:
             event = control_queue.get()
             if event["type"] == "local_game_done":
                 busy_processes -= 1
-                print("+++ Process Free. Total Queued: {}. Total Used: {}".format(queued_processes, busy_processes))
+                print("+++ Process Free. Total Queued: {}. Total Used: {}" \
+                      .format(queued_processes, busy_processes))
             elif event["type"] == "challenge":
                 chlng = model.Challenge(event["challenge"])
                 if chlng.is_supported(challenge_config):
@@ -73,7 +82,8 @@ def start(li, user_profile, engine_factory, config):
                         li.decline_challenge(chlng.id)
                         print("    Decline {}".format(chlng))
                     except HTTPError as exception:
-                        if exception.response.status_code != 404: # ignore missing challenge
+                        if exception.response.status_code != 404:
+                            # ignore missing challenge
                             raise exception
             elif event["type"] == "gameStart":
                 if queued_processes <= 0:
@@ -81,10 +91,16 @@ def start(li, user_profile, engine_factory, config):
                 else:
                     queued_processes -= 1
                 game_id = event["game"]["id"]
-                pool.apply_async(play_game, [li, game_id, control_queue, engine_factory, user_profile, config, challenge_queue])
+                pool.apply_async(play_game,
+                                 [li, game_id, control_queue, engine_factory,
+                                  user_profile, config, challenge_queue])
                 busy_processes += 1
-                print("--- Process Used. Total Queued: {}. Total Used: {}".format(queued_processes, busy_processes))
-            while ((queued_processes + busy_processes) < max_games and challenge_queue): # keep processing the queue until empty or max_games is reached
+                print("--- Process Used. Total Queued: {}. Total Used: {}" \
+                      .format(queued_processes, busy_processes))
+
+            # keep processing the queue until empty or max_games is reached
+            while (queued_processes + busy_processes) < max_games and \
+                  challenge_queue:
                 chlng = challenge_queue.pop(0)
                 try:
                     response = li.accept_challenge(chlng.id)
@@ -92,7 +108,8 @@ def start(li, user_profile, engine_factory, config):
                     queued_processes += 1
                     print("--- Process Queue. Total Queued: {}. Total Used: {}".format(queued_processes, busy_processes))
                 except HTTPError as exception:
-                    if exception.response.status_code == 404: # ignore missing challenge
+                    if exception.response.status_code == 404:
+                        # ignore missing challenge
                         print("    Skip missing {}".format(chlng))
                     else:
                         raise exception
@@ -101,13 +118,22 @@ def start(li, user_profile, engine_factory, config):
     control_stream.join()
 
 @backoff.on_exception(backoff.expo, BaseException, max_time=600)
-def play_game(li, game_id, control_queue, engine_factory, user_profile, config, challenge_queue):
+def play_game(li, game_id, control_queue, engine_factory, user_profile, config,
+              challenge_queue):
     updates = li.get_game_stream(game_id).iter_lines()
 
     #Initial response of stream will be the full game info. Store it
-    game = model.Game(json.loads(next(updates).decode('utf-8')), user_profile["username"], li.baseUrl, config.get("abort_time", 20))
+    game = model.Game(json.loads(next(updates).decode('utf-8')),
+                      user_profile["username"],
+                      li.baseUrl,
+                      config.get("abort_time", 20))
     board = setup_board(game)
-    engine = engine_factory(board)
+    if not engine:
+        engine_init(engine, board)
+    else:
+        engine.stop()
+        engine.reset()
+        engine.set_board(board)
     conversation = Conversation(game, engine, li, __version__, challenge_queue)
     conversation.send_greeting()
     print("+++ {}".format(game))
@@ -132,31 +158,30 @@ def play_game(li, game_id, control_queue, engine_factory, user_profile, config, 
                 board = update_board(board, moves[-1])
                 if is_engine_move(game, moves):
                     engine.stop()
-                    if config.get("fake_think_time") and len(moves) > 9:
-                        delay = min(game.clock_initial, game.my_remaining_seconds()) * 0.015
-                        accel = 1 - max(0, min(100, len(moves) - 20)) / 150
-                        sleep = min(5, delay * accel)
-                        time.sleep(sleep)
-                    best_move = None
-                    if polyglot_cfg.get("enabled") and len(moves) <= polyglot_cfg.get("max_depth", 8) * 2 - 1:
-                        best_move = get_book_move(board, polyglot_cfg)
-                    if best_move == None:
-                        best_move = engine.search(board, upd["wtime"], upd["btime"], upd["winc"], upd["binc"])
-                        engine.get_stats()
+                    best_move = engine.search(board,
+                                              upd["wtime"],
+                                              upd["btime"],
+                                              upd["winc"],
+                                              upd["binc"])
+                    engine.get_stats()
                     li.make_move(game.id, best_move)
                     game.abort_in(config.get("abort_time", 20))
                 else:
                     engine.ponder(board)
             elif u_type == "ping":
                 if game.should_abort_now():
-                    print("    Aborting {} by lack of activity".format(game.url()))
+                    print("    Aborting {} by lack of activity" \
+                          .format(game.url()))
                     li.abort(game.id)
-    except (RemoteDisconnected, ChunkedEncodingError, ConnectionError, ProtocolError, HTTPError) as exception:
+    except (RemoteDisconnected, ChunkedEncodingError, ConnectionError,
+            ProtocolError, HTTPError) as exception:
         print("Abandoning game due to connection error")
-        traceback.print_exception(type(exception), exception, exception.__traceback__)
+        traceback.print_exception(type(exception), exception,
+                                  exception.__traceback__)
     finally:
         print("--- {} Game over".format(game.url()))
-        engine.quit()
+        engine.stop()
+        engine.reset()
         # This can raise queue.NoFull, but that should only happen if we're not processing
         # events fast enough and in this case I believe the exception should be raised
         control_queue.put_nowait({"type": "local_game_done"})
