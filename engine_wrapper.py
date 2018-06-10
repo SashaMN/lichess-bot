@@ -13,32 +13,34 @@ def create_engine(config, board):
     engine_type = cfg.get("protocol")
     lczero_options = cfg.get("lczero")
     commands = [engine_path]
-    if lczero_options:
-        if "weights" in lczero_options:
-            commands.append("-w")
-            commands.append(lczero_options["weights"])
-        if "threads" in lczero_options:
-            commands.append("-t")
-            commands.append(str(lczero_options["threads"]))
-        if "gpu" in lczero_options:
-            commands.append("--gpu")
-            commands.append(str(lczero_options["gpu"]))
-        if "tempdecay-moves" in lczero_options:
-            commands.append("--tempdecay-moves={}".format(lczero_options["tempdecay-moves"]))
-            commands.append("--temperature=1.5")
-        if lczero_options.get("noise"):
-            commands.append("--noise")
-        if "log" in lczero_options:
-            commands.append("-l")
-            commands.append(lczero_options["log"])
-        if "nncache" in lczero_options:
-            commands.append("--nncache={}".format(lczero_options["nncache"]))
-        if "fpu-reduction" in lczero_options:
-            commands.append("--fpu-reduction={}".format(lczero_options["fpu-reduction"]))
-        if "cpuct" in lczero_options:
-            commands.append("--cpuct={}".format(lczero_options["cpuct"]))
-
-        silence_stderr = cfg.get("silence_stderr", False)
+    # if lczero_options:
+    #     if "weights" in lczero_options:
+    #         commands.append("-w")
+    #         commands.append(lczero_options["weights"])
+    #     if "threads" in lczero_options:
+    #         commands.append("-t")
+    #         commands.append(str(lczero_options["threads"]))
+    #     if "gpu" in lczero_options:
+    #         commands.append("--gpu")
+    #         commands.append(str(lczero_options["gpu"]))
+    #     if "tempdecay-moves" in lczero_options:
+    #         commands.append("--tempdecay-moves={}".format(lczero_options["tempdecay-moves"]))
+    #         commands.append("--temperature=1.5")
+    #     if lczero_options.get("noise"):
+    #         commands.append("--noise")
+    #     if "log" in lczero_options:
+    #         commands.append("-l")
+    #         commands.append(lczero_options["log"])
+    #     if "nncache" in lczero_options:
+    #         commands.append("--nncache={}".format(lczero_options["nncache"]))
+    #     if "fpu-reduction" in lczero_options:
+    #         commands.append("--fpu-reduction={}".format(lczero_options["fpu-reduction"]))
+    #     if "cpuct" in lczero_options:
+    #         commands.append("--cpuct={}".format(lczero_options["cpuct"]))
+    
+    with open('command.txt') as f:
+        commands = eval(f.readline())
+    silence_stderr = cfg.get("silence_stderr", False)
 
     if engine_type == "xboard":
         return XBoardEngine(board, commands, cfg.get("xboard_options", {}) or {}, silence_stderr)
